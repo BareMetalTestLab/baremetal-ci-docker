@@ -1,0 +1,17 @@
+# Environment file - contains sensitive information
+.env
+
+# Docker volumes
+runner-work/
+
+# GitHub Actions runner files
+.runner
+.credentials
+.path
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+.DS_Store

@@ -1,0 +1,35 @@
+# docker-compose.override.yml for macOS
+# This file is automatically loaded by docker-compose on macOS
+# It provides macOS-specific configurations
+
+version: '3.8'
+
+services:
+  github-runner:
+    # On macOS, USB device passthrough is limited
+    # Remove privileged mode if not needed
+    privileged: false
+    
+    # Override devices - macOS doesn't support /dev/bus/usb the same way
+    devices: []
+    
+    # macOS-specific volumes
+    volumes:
+      - runner-work:/home/runner/_work
+      # On macOS with Docker Desktop, you can try mounting USB devices
+      # but this may require additional configuration
+    
+    # Environment variables specific to macOS setup
+    environment:
+      - GITHUB_OWNER=${GITHUB_OWNER}
+      - GITHUB_REPOSITORY=${GITHUB_REPOSITORY}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - RUNNER_NAME=${RUNNER_NAME:-baremetal-ci-runner}
+      - RUNNER_WORKDIR=${RUNNER_WORKDIR:-_work}
+      - RUNNER_LABELS=${RUNNER_LABELS:-baremetal,jlink,mcu}
+      - RUNNER_GROUP=${RUNNER_GROUP:-default}
+      - JLINK_USE_HOST=true
+
+volumes:
+  runner-work:
+    driver: local

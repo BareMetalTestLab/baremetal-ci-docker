@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  github-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: baremetal-ci-runner
+    
+    # Privileged mode for USB device access (Linux)
+    privileged: true
+    
+    # Pass all USB devices to the container
+    # Note: On macOS, USB passthrough requires Docker Desktop with USB support
+    # or installing J-Link tools on the host and using network connection
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
+    
+    # Mount volumes for persistent data
+    volumes:
+      - runner-work:/home/runner/_work
+      # Linux-specific mounts (ignored on macOS)
+      - /dev:/dev
+      - /run/udev:/run/udev:ro
+    
+    # Environment variables for GitHub runner configuration
+    environment:
+      - GITHUB_OWNER=${GITHUB_OWNER}
+      - GITHUB_REPOSITORY=${GITHUB_REPOSITORY}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - RUNNER_NAME=${RUNNER_NAME:-baremetal-ci-runner}
+      - RUNNER_WORKDIR=${RUNNER_WORKDIR:-_work}
+      - RUNNER_LABELS=${RUNNER_LABELS:-baremetal,jlink,mcu}
+      - RUNNER_GROUP=${RUNNER_GROUP:-default}
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Network mode (host mode for better USB device detection)
+    network_mode: bridge
+
+volumes:
+  runner-work:
+    driver: local
