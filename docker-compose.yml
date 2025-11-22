@@ -13,25 +13,27 @@ services:
     # Pass all USB devices to the container
     # Note: On macOS, USB passthrough requires Docker Desktop with USB support
     # or installing J-Link tools on the host and using network connection
-    devices:
-      - /dev/bus/usb:/dev/bus/usb
+    # Removed static device mapping, using privileged mode instead for dynamic USB access
     
     # Mount volumes for persistent data
     volumes:
       - runner-work:/home/runner/_work
       # Linux-specific mounts (ignored on macOS)
-      - /dev:/dev
-      - /run/udev:/run/udev:ro
+      # Bind mount /dev for dynamic USB device access
+      - /dev:/dev:rw
     
     # Environment variables for GitHub runner configuration
     environment:
       - GITHUB_OWNER=${GITHUB_OWNER}
       - GITHUB_REPOSITORY=${GITHUB_REPOSITORY}
       - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_REGISTRATION_TOKEN=${GITHUB_REGISTRATION_TOKEN}
       - RUNNER_NAME=${RUNNER_NAME:-baremetal-ci-runner}
       - RUNNER_WORKDIR=${RUNNER_WORKDIR:-_work}
       - RUNNER_LABELS=${RUNNER_LABELS:-baremetal,jlink,mcu}
       - RUNNER_GROUP=${RUNNER_GROUP:-default}
+      - JLINK_SERIAL_NUMBERS=${JLINK_SERIAL_NUMBERS}
+      - ADDITIONAL_PACKAGES=${ADDITIONAL_PACKAGES}
     
     # Restart policy
     restart: unless-stopped

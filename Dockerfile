@@ -1,10 +1,10 @@
 # Docker container for baremetal MCU CI testing with GitHub Actions runner and Segger J-Link
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 # Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install base dependencies
+# Install base dependencies and build tools
 RUN apt-get update && apt-get install -y \
     curl \
     wget \
@@ -16,12 +16,49 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     libusb-1.0-0 \
     udev \
+    usbutils \
+    cmake \
+    gcc-arm-none-eabi \
+    python3 \
+    python3-pip \
+    python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
 # Create a user for the GitHub runner (avoid running as root)
 RUN useradd -m -s /bin/bash runner && \
     usermod -aG sudo runner && \
     echo "runner ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Install X11 dependencies required by J-Link (before J-Link installation)
+RUN apt-get update && apt-get install -y \
+    libxrender1 \
+    libxcb-render0 \
+    libxcb-render-util0 \
+    libxcb-shape0 \
+    libxcb-randr0 \
+    libxcb-xfixes0 \
+    libxcb-sync1 \
+    libxcb-shm0 \
+    libxcb-icccm4 \
+    libxcb-keysyms1 \
+    libxcb-image0 \
+    libxkbcommon0 \
+    libxkbcommon-x11-0 \
+    libfontconfig1 \
+    libfreetype6 \
+    libx11-xcb1 \
+    libsm6 \
+    libice6 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Workaround: J-Link postinstall script calls udevadm which doesn't work in Docker build
+# Temporarily replace udevadm with a stub that does nothing
+RUN if [ -f /bin/udevadm ]; then \
+        mv /bin/udevadm /bin/udevadm.real; \
+    fi && \
+    echo '#!/bin/bash' > /bin/udevadm && \
+    echo 'exit 0' >> /bin/udevadm && \
+    chmod +x /bin/udevadm
 
 # Install Segger J-Link Software
 # Download and install the latest J-Link Software
@@ -43,6 +80,12 @@ RUN ARCH=$(uname -m) && \
         rm JLink.deb; \
     fi
 
+# Restore real udevadm after J-Link installation
+RUN if [ -f /bin/udevadm.real ]; then \
+        rm /bin/udevadm && \
+        mv /bin/udevadm.real /bin/udevadm; \
+    fi
+
 # Add udev rules for J-Link devices
 RUN echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="1366", MODE="0666"' > /etc/udev/rules.d/99-jlink.rules
 
@@ -52,11 +95,20 @@ USER runner
 
 # Download and extract GitHub Actions runner
 # The version should be updated to the latest available
+# Automatically detect architecture and download appropriate version
 RUN RUNNER_VERSION=$(curl -s https://api.github.com/repos/actions/runner/releases/latest | jq -r '.tag_name' | sed 's/v//') && \
-    curl -o actions-runner-linux-x64.tar.gz -L \
-    https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz && \
-    tar xzf actions-runner-linux-x64.tar.gz && \
-    rm actions-runner-linux-x64.tar.gz
+    ARCH=$(uname -m) && \
+    if [ "$ARCH" = "x86_64" ]; then \
+        RUNNER_ARCH="x64"; \
+    elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then \
+        RUNNER_ARCH="arm64"; \
+    else \
+        echo "Unsupported architecture: $ARCH" && exit 1; \
+    fi && \
+    curl -o actions-runner-linux.tar.gz -L \
+    https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-${RUNNER_ARCH}-${RUNNER_VERSION}.tar.gz && \
+    tar xzf actions-runner-linux.tar.gz && \
+    rm actions-runner-linux.tar.gz
 
 # Install runner dependencies
 RUN sudo ./bin/installdependencies.sh

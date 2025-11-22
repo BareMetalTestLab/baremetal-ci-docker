@@ -24,9 +24,32 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# Ensure _work directory exists and has correct permissions
+log_info "Setting up work directory..."
+if [ ! -d "/home/runner/_work" ]; then
+    mkdir -p /home/runner/_work
+fi
+# Fix ownership if needed
+if [ "$(stat -c %U /home/runner/_work)" != "runner" ]; then
+    sudo chown -R runner:runner /home/runner/_work
+fi
+
+# Install additional packages if specified
+if [ -n "${ADDITIONAL_PACKAGES}" ]; then
+    log_info "Installing additional packages: ${ADDITIONAL_PACKAGES}"
+    sudo apt-get update > /dev/null 2>&1
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ${ADDITIONAL_PACKAGES} > /dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        log_info "Additional packages installed successfully"
+    else
+        log_warn "Failed to install some packages. Continuing anyway..."
+    fi
+    sudo rm -rf /var/lib/apt/lists/*
+fi
+
 # Validate required environment variables
-if [ -z "${GITHUB_TOKEN}" ]; then
-    log_error "GITHUB_TOKEN is required"
+if [ -z "${GITHUB_TOKEN}" ] && [ -z "${GITHUB_REGISTRATION_TOKEN}" ]; then
+    log_error "Either GITHUB_TOKEN (PAT) or GITHUB_REGISTRATION_TOKEN is required"
     exit 1
 fi
 
@@ -48,18 +71,25 @@ else
     log_info "Registering runner for organization: ${GITHUB_OWNER}"
 fi
 
-# Get registration token from GitHub API
-log_info "Obtaining registration token from GitHub..."
-REGISTRATION_TOKEN=$(curl -s -X POST -H "Authorization: token ${GITHUB_TOKEN}" \
-    -H "Accept: application/vnd.github.v3+json" \
-    "${TOKEN_URL}" | jq -r .token)
-
-if [ -z "${REGISTRATION_TOKEN}" ] || [ "${REGISTRATION_TOKEN}" == "null" ]; then
-    log_error "Failed to obtain registration token from GitHub"
-    exit 1
+# Get registration token
+if [ -n "${GITHUB_REGISTRATION_TOKEN}" ]; then
+    # Use provided registration token directly
+    log_info "Using provided registration token"
+    REGISTRATION_TOKEN="${GITHUB_REGISTRATION_TOKEN}"
+elif [ -n "${GITHUB_TOKEN}" ]; then
+    # Get registration token from GitHub API using PAT
+    log_info "Obtaining registration token from GitHub API..."
+    REGISTRATION_TOKEN=$(curl -s -X POST -H "Authorization: token ${GITHUB_TOKEN}" \
+        -H "Accept: application/vnd.github.v3+json" \
+        "${TOKEN_URL}" | jq -r .token)
+    
+    if [ -z "${REGISTRATION_TOKEN}" ] || [ "${REGISTRATION_TOKEN}" == "null" ]; then
+        log_error "Failed to obtain registration token from GitHub API"
+        log_error "Please check your GITHUB_TOKEN has correct permissions (repo, admin:org)"
+        exit 1
+    fi
+    log_info "Registration token obtained successfully"
 fi
-
-log_info "Registration token obtained successfully"
 
 # Check for J-Link devices
 log_info "Checking for J-Link devices..."
@@ -75,6 +105,26 @@ if command -v JLinkExe &> /dev/null; then
 else
     log_warn "JLinkExe not found in PATH"
     log_warn "On macOS hosts, you may need to use host-installed J-Link tools."
+fi
+
+# Configure udev rules for specific J-Link devices if serial numbers are provided
+if [ -n "${JLINK_SERIAL_NUMBERS}" ]; then
+    log_info "Configuring udev rules for specific J-Link devices..."
+    IFS=',' read -ra SERIALS <<< "${JLINK_SERIAL_NUMBERS}"
+    for SERIAL in "${SERIALS[@]}"; do
+        SERIAL=$(echo "$SERIAL" | xargs) # Trim whitespace
+        if [ -n "$SERIAL" ]; then
+            log_info "Adding udev rule for J-Link S/N: ${SERIAL}"
+            echo "SUBSYSTEM==\"usb\", ATTR{idVendor}==\"1366\", ATTR{serial}==\"${SERIAL}\", MODE=\"0666\", GROUP=\"plugdev\"" | sudo tee -a /etc/udev/rules.d/99-jlink-specific.rules > /dev/null
+        fi
+    done
+    
+    # Reload udev rules
+    if [ -f /etc/udev/rules.d/99-jlink-specific.rules ]; then
+        log_info "Reloading udev rules..."
+        sudo udevadm control --reload-rules 2>/dev/null || true
+        sudo udevadm trigger 2>/dev/null || true
+    fi
 fi
 
 # Configure the runner if not already configured
