@@ -22,34 +22,13 @@ RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
     python3-venv \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Create a user for the GitHub runner (avoid running as root)
 RUN useradd -m -s /bin/bash runner && \
     usermod -aG sudo runner && \
     echo "runner ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
-
-# Install X11 dependencies required by J-Link (before J-Link installation)
-RUN apt-get update && apt-get install -y \
-    libxrender1 \
-    libxcb-render0 \
-    libxcb-render-util0 \
-    libxcb-shape0 \
-    libxcb-randr0 \
-    libxcb-xfixes0 \
-    libxcb-sync1 \
-    libxcb-shm0 \
-    libxcb-icccm4 \
-    libxcb-keysyms1 \
-    libxcb-image0 \
-    libxkbcommon0 \
-    libxkbcommon-x11-0 \
-    libfontconfig1 \
-    libfreetype6 \
-    libx11-xcb1 \
-    libsm6 \
-    libice6 \
-    && rm -rf /var/lib/apt/lists/*
 
 # Workaround: J-Link postinstall script calls udevadm which doesn't work in Docker build
 # Temporarily replace udevadm with a stub that does nothing
@@ -61,8 +40,8 @@ RUN if [ -f /bin/udevadm ]; then \
     chmod +x /bin/udevadm
 
 # Install Segger J-Link Software
-# Download and install the latest J-Link Software
-# Note: For macOS hosts, J-Link must be installed on the host system
+# Note: CLI tools work without X11 dependencies (--force-depends ignores GUI deps)
+# GUI tools (J-Link Configurator) won't work, but CLI (JLinkExe, JLinkGDBServer) will
 WORKDIR /tmp
 RUN ARCH=$(uname -m) && \
     JLINK_VERSION="V794e" && \
@@ -70,13 +49,13 @@ RUN ARCH=$(uname -m) && \
         wget --post-data "accept_license_agreement=accepted" \
         https://www.segger.com/downloads/jlink/JLink_Linux_${JLINK_VERSION}_x86_64.deb \
         -O JLink.deb && \
-        dpkg -i JLink.deb || apt-get install -f -y && \
+        dpkg --force-depends -i JLink.deb && \
         rm JLink.deb; \
     elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then \
         wget --post-data "accept_license_agreement=accepted" \
         https://www.segger.com/downloads/jlink/JLink_Linux_${JLINK_VERSION}_arm64.deb \
         -O JLink.deb && \
-        dpkg -i JLink.deb || apt-get install -f -y && \
+        dpkg --force-depends -i JLink.deb && \
         rm JLink.deb; \
     fi
 
@@ -110,8 +89,8 @@ RUN RUNNER_VERSION=$(curl -s https://api.github.com/repos/actions/runner/release
     tar xzf actions-runner-linux.tar.gz && \
     rm actions-runner-linux.tar.gz
 
-# Install runner dependencies
-RUN sudo ./bin/installdependencies.sh
+# Skip runner dependencies installation to avoid X11 libraries
+# The runner works without .NET dependencies for basic shell/script jobs
 
 # Copy the entrypoint script
 COPY --chown=runner:runner entrypoint.sh /home/runner/entrypoint.sh
