@@ -51,8 +51,8 @@ For detailed GitLab-specific documentation, see [README.gitlab.md](README.gitlab
 ### 1. Clone or Create Project Directory
 
 ```bash
-mkdir baremetal-github-docker-ci
-cd baremetal-github-docker-ci
+git clone https://github.com/RoboticsHardwareSolutions/baremetal-ci-docker.git
+cd baremetal-ci-docker
 ```
 
 ### 2. Create Environment Configuration
