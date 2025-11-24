@@ -1,11 +1,16 @@
 version: '3.8'
 
 services:
-  github-runner:
+  ci-runner:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: baremetal-ci-runner
+      args:
+        CI_PLATFORM: ${CI_PLATFORM}
+    container_name: ${CONTAINER_NAME:-baremetal-ci-runner}
+    
+    # Single unified entrypoint that selects runner based on CI_PLATFORM
+    entrypoint: ["/home/runner/entrypoint.sh"]
     
     # Privileged mode for USB device access (Linux)
     privileged: true
@@ -18,20 +23,37 @@ services:
     # Mount volumes for persistent data
     volumes:
       - runner-work:/home/runner/_work
+      - runner-builds:/home/runner/builds
+      - gitlab-runner-config:/etc/gitlab-runner
       # Linux-specific mounts (ignored on macOS)
       # Bind mount /dev for dynamic USB device access
       - /dev:/dev:rw
     
-    # Environment variables for GitHub runner configuration
+    # Environment variables for CI runner configuration
     environment:
+      # Platform selection: 'github' or 'gitlab'
+      - CI_PLATFORM=${CI_PLATFORM:-github}
+      
+      # GitHub Actions configuration
       - GITHUB_OWNER=${GITHUB_OWNER}
       - GITHUB_REPOSITORY=${GITHUB_REPOSITORY}
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - GITHUB_REGISTRATION_TOKEN=${GITHUB_REGISTRATION_TOKEN}
-      - RUNNER_NAME=${RUNNER_NAME:-baremetal-ci-runner}
       - RUNNER_WORKDIR=${RUNNER_WORKDIR:-_work}
-      - RUNNER_LABELS=${RUNNER_LABELS:-baremetal,jlink,mcu}
       - RUNNER_GROUP=${RUNNER_GROUP:-default}
+      
+      # GitLab Runner configuration
+      - GITLAB_URL=${GITLAB_URL:-https://gitlab.com}
+      - GITLAB_REGISTRATION_TOKEN=${GITLAB_REGISTRATION_TOKEN}
+      - RUNNER_EXECUTOR=${RUNNER_EXECUTOR:-shell}
+      - RUNNER_RUN_UNTAGGED=${RUNNER_RUN_UNTAGGED:-false}
+      - RUNNER_LOCKED=${RUNNER_LOCKED:-false}
+      - RUNNER_ACCESS_LEVEL=${RUNNER_ACCESS_LEVEL:-not_protected}
+      
+      # Common configuration (both platforms)
+      - RUNNER_NAME=${RUNNER_NAME:-baremetal-ci-runner}
+      - RUNNER_LABELS=${RUNNER_LABELS:-baremetal,jlink,mcu}
+      - RUNNER_TAGS=${RUNNER_TAGS:-baremetal,jlink,mcu}
       - JLINK_SERIAL_NUMBERS=${JLINK_SERIAL_NUMBERS}
       - ADDITIONAL_PACKAGES=${ADDITIONAL_PACKAGES}
     
@@ -43,4 +65,8 @@ services:
 
 volumes:
   runner-work:
+    driver: local
+  runner-builds:
+    driver: local
+  gitlab-runner-config:
     driver: local

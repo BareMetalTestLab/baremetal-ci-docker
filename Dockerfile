@@ -1,6 +1,23 @@
 # Docker container for baremetal MCU CI testing with GitHub Actions runner and Segger J-Link
 FROM ubuntu:24.04
 
+# Build argument to select CI platform (passed from docker-compose.yml via .env)
+# Must be 'github' or 'gitlab'
+ARG CI_PLATFORM
+
+# Validate CI_PLATFORM at build time
+RUN if [ -z "${CI_PLATFORM}" ]; then \
+        echo "ERROR: CI_PLATFORM is not set"; \
+        echo "Please set CI_PLATFORM in your .env file to 'github' or 'gitlab'"; \
+        exit 1; \
+    fi && \
+    if [ "${CI_PLATFORM}" != "github" ] && [ "${CI_PLATFORM}" != "gitlab" ]; then \
+        echo "ERROR: Invalid CI_PLATFORM=${CI_PLATFORM}"; \
+        echo "CI_PLATFORM must be 'github' or 'gitlab'"; \
+        echo "Running both runners simultaneously is not supported"; \
+        exit 1; \
+    fi
+
 # Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -72,22 +89,42 @@ RUN echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="1366", MODE="0666"' > /etc/udev/rul
 WORKDIR /home/runner
 USER runner
 
-# Download and extract GitHub Actions runner
+# Download and extract GitHub Actions runner (only if CI_PLATFORM=github)
 # The version should be updated to the latest available
 # Automatically detect architecture and download appropriate version
-RUN RUNNER_VERSION=$(curl -s https://api.github.com/repos/actions/runner/releases/latest | jq -r '.tag_name' | sed 's/v//') && \
-    ARCH=$(uname -m) && \
-    if [ "$ARCH" = "x86_64" ]; then \
-        RUNNER_ARCH="x64"; \
-    elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then \
-        RUNNER_ARCH="arm64"; \
+RUN if [ "${CI_PLATFORM}" = "github" ]; then \
+        RUNNER_VERSION=$(curl -s https://api.github.com/repos/actions/runner/releases/latest | jq -r '.tag_name' | sed 's/v//') && \
+        ARCH=$(uname -m) && \
+        if [ "$ARCH" = "x86_64" ]; then \
+            RUNNER_ARCH="x64"; \
+        elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then \
+            RUNNER_ARCH="arm64"; \
+        else \
+            echo "Unsupported architecture: $ARCH" && exit 1; \
+        fi && \
+        curl -o actions-runner-linux.tar.gz -L \
+        https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-${RUNNER_ARCH}-${RUNNER_VERSION}.tar.gz && \
+        tar xzf actions-runner-linux.tar.gz && \
+        rm actions-runner-linux.tar.gz; \
     else \
-        echo "Unsupported architecture: $ARCH" && exit 1; \
-    fi && \
-    curl -o actions-runner-linux.tar.gz -L \
-    https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-${RUNNER_ARCH}-${RUNNER_VERSION}.tar.gz && \
-    tar xzf actions-runner-linux.tar.gz && \
-    rm actions-runner-linux.tar.gz
+        echo "Skipping GitHub Actions runner installation (CI_PLATFORM=${CI_PLATFORM})"; \
+    fi
+
+# Install GitLab Runner (only if CI_PLATFORM=gitlab)
+USER root
+RUN if [ "${CI_PLATFORM}" = "gitlab" ]; then \
+        curl -L "https://packages.gitlab.com/install/repositories/runner/gitlab-runner/script.deb.sh" | bash && \
+        apt-get download gitlab-runner && \
+        dpkg --force-depends -i gitlab-runner_*.deb && \
+        rm gitlab-runner_*.deb && \
+        apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
+        usermod -aG sudo gitlab-runner && \
+        mkdir -p /home/runner/builds && \
+        chown -R runner:runner /home/runner/builds; \
+    else \
+        echo "Skipping GitLab Runner installation (CI_PLATFORM=${CI_PLATFORM})"; \
+    fi
+USER runner
 
 # Skip runner dependencies installation to avoid X11 libraries
 # The runner works without .NET dependencies for basic shell/script jobs

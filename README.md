@@ -1,6 +1,24 @@
-# Baremetal MCU CI Testing with GitHub Actions Runner and Segger J-Link
+# Baremetal MCU CI Testing with GitHub/GitLab Runner and Segger J-Link
 
-Docker container for continuous integration testing of baremetal microcontroller devices. This container includes a self-hosted GitHub Actions runner with Segger J-Link support for flashing and debugging MCU hardware.
+Docker container for continuous integration testing of baremetal microcontroller devices. This container includes self-hosted CI runners (GitHub Actions or GitLab CI) with Segger J-Link support for flashing and debugging MCU hardware.
+
+## Choose Your CI Platform
+
+This Docker image supports both **GitHub Actions** and **GitLab CI**. Select your platform in the `.env` file:
+
+```bash
+# In .env file
+CI_PLATFORM=github    # for GitHub Actions
+# or
+CI_PLATFORM=gitlab    # for GitLab CI
+```
+
+Then simply run:
+```bash
+docker-compose up -d
+```
+
+For detailed GitLab-specific documentation, see [README.gitlab.md](README.gitlab.md).
 
 ## Features
 
@@ -45,9 +63,14 @@ Copy the example environment file and fill in your details:
 cp .env.example .env
 ```
 
-Edit `.env` and set the following variables:
+Edit `.env` and set:
+
+**For GitHub Actions (`CI_PLATFORM=github`):**
 
 ```bash
+# Platform selection
+CI_PLATFORM=github
+
 # GitHub token with repo and admin:org permissions
 GITHUB_TOKEN=ghp_your_token_here
 
@@ -63,31 +86,19 @@ RUNNER_LABELS=baremetal,jlink,mcu
 RUNNER_GROUP=default
 ```
 
+**For GitLab CI (`CI_PLATFORM=gitlab`):**
+
+See [README.gitlab.md](README.gitlab.md) for GitLab-specific configuration.
+
 ### 3. Build and Run
 
-**Cross-platform (recommended):**
-
-Use the provided helper script that automatically detects your OS:
-
-```bash
-chmod +x run.sh
-./run.sh up -d
-```
-
-**Manual commands:**
-
-**On Linux:**
+**All platforms (after configuring .env):**
 
 ```bash
 docker-compose up -d
 ```
 
-**On macOS:**
-
-```bash
-# Use the macOS-specific configuration
-docker-compose -f docker-compose.yml -f docker-compose.macos.yml up -d
-```
+The container will automatically start the appropriate runner based on your `CI_PLATFORM` setting.
 
 **Note for macOS users:**
 
@@ -193,17 +204,50 @@ docker exec baremetal-ci-runner JLinkExe -device <MCU_NAME> -if SWD -speed 4000 
 
 ### Environment Variables
 
+All configuration is done in the `.env` file. Copy `.env.example` to `.env` and configure:
+
+#### Platform Selection
+
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
-| `GITHUB_TOKEN` | Yes | GitHub Personal Access Token | - |
-| `GITHUB_OWNER` | Conditional* | GitHub organization name | - |
-| `GITHUB_REPOSITORY` | Conditional* | Repository in format `owner/repo` | - |
-| `RUNNER_NAME` | No | Name for the runner | `baremetal-ci-runner` |
-| `RUNNER_LABELS` | No | Comma-separated labels | `baremetal,jlink,mcu` |
-| `RUNNER_GROUP` | No | Runner group | `default` |
-| `RUNNER_WORKDIR` | No | Working directory for jobs | `_work` |
+| `CI_PLATFORM` | Yes | CI platform to use: `github` or `gitlab` | `github` |
 
-*Either `GITHUB_OWNER` (for org-level runner) or `GITHUB_REPOSITORY` (for repo-level runner) must be set.
+#### GitHub Actions Configuration (when `CI_PLATFORM=github`)
+
+| Variable | Required | Description | Example |
+|----------|----------|-------------|---------|
+| `GITHUB_TOKEN` | Conditional* | GitHub Personal Access Token with `repo` and `admin:org` permissions. Generate at [GitHub Settings](https://github.com/settings/tokens) | `ghp_xxxxxxxxxxxx` |
+| `GITHUB_REGISTRATION_TOKEN` | Conditional* | Direct registration token (expires in 1 hour). Get from organization or repo runner settings | `ALNAPSP4xxxx` |
+| `GITHUB_OWNER` | Conditional** | Organization name for org-level runner | `your-org-name` |
+| `GITHUB_REPOSITORY` | Conditional** | Repository in format `owner/repo` for repo-level runner | `owner/repo-name` |
+| `RUNNER_NAME` | No | Runner name shown in GitHub | `baremetal-ci-runner` |
+| `RUNNER_LABELS` | No | Comma-separated labels for workflow targeting | `baremetal,jlink,mcu` |
+| `RUNNER_GROUP` | No | Runner group (org runners only) | `default` |
+
+*Either `GITHUB_TOKEN` or `GITHUB_REGISTRATION_TOKEN` is required  
+**Either `GITHUB_OWNER` (org-level) or `GITHUB_REPOSITORY` (repo-level) is required
+
+#### GitLab CI Configuration (when `CI_PLATFORM=gitlab`)
+
+| Variable | Required | Description | Example |
+|----------|----------|-------------|---------|
+| `GITLAB_URL` | No | GitLab instance URL | `https://gitlab.com` |
+| `GITLAB_REGISTRATION_TOKEN` | Yes | Registration token from project/group/instance settings | `GR1348941xxxx` |
+| `RUNNER_NAME` | No | Runner name shown in GitLab | `baremetal-ci-runner` |
+| `RUNNER_TAGS` | No | Comma-separated tags for job targeting | `baremetal,jlink,mcu` |
+| `RUNNER_EXECUTOR` | No | Executor type (use `shell` for hardware testing) | `shell` |
+
+**Getting GitLab Registration Token:**
+- **Project**: Settings → CI/CD → Runners → Specific runners
+- **Group**: Settings → CI/CD → Runners
+- **Instance**: Admin Area → Overview → Runners
+
+#### Common Configuration (both platforms)
+
+| Variable | Required | Description | Example |
+|----------|----------|-------------|---------|
+| `JLINK_SERIAL_NUMBERS` | No | Comma-separated J-Link serial numbers. Leave empty to use all devices | `123456789,987654321` |
+| `ADDITIONAL_PACKAGES` | No | Space-separated apt packages to install on startup | `gdb-multiarch openocd` |
 
 ## Troubleshooting
 
