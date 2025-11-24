@@ -64,12 +64,10 @@ if command -v JLinkExe &> /dev/null; then
         log_info "J-Link devices detected"
     else
         log_warn "No J-Link devices detected."
-        log_warn "On Linux: Make sure USB devices are properly passed to the container."
-        log_warn "On macOS: Install J-Link on host and use network connection or USB passthrough."
+        log_warn "Make sure USB devices are properly passed to the container (privileged mode + /dev mount)."
     fi
 else
     log_warn "JLinkExe not found in PATH"
-    log_warn "On macOS hosts, you may need to use host-installed J-Link tools."
 fi
 
 # Configure udev rules for specific J-Link devices if serial numbers are provided
@@ -232,5 +230,5 @@ else
 
     # Start the runner
     log_info "Starting GitHub Actions runner..."
-    ./run.sh & wait $!
+    /home/runner/run.sh & wait $!
 fi

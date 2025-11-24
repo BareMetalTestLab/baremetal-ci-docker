@@ -30,21 +30,17 @@ For detailed GitLab-specific documentation, see [README.gitlab.md](README.gitlab
 
 ## Prerequisites
 
-- Docker Engine (20.10+) or Docker Desktop for Mac
+- Docker Engine (20.10+)
 - Docker Compose (2.0+)
 - GitHub Personal Access Token with `repo` and `admin:org` (if using organization) permissions
 - Segger J-Link device connected via USB
+- **Linux host required** for USB device passthrough
 
 ### Platform-Specific Requirements
 
 **Linux:**
 - Direct USB device passthrough supported
 - Requires privileged container mode
-
-**macOS:**
-- Docker Desktop with USB device support (experimental feature)
-- Alternative: Install J-Link tools on host macOS and use network connection
-- Use the macOS-specific docker-compose configuration
 
 ## Quick Start
 
@@ -92,29 +88,11 @@ See [README.gitlab.md](README.gitlab.md) for GitLab-specific configuration.
 
 ### 3. Build and Run
 
-**All platforms (after configuring .env):**
-
 ```bash
 docker-compose up -d
 ```
 
 The container will automatically start the appropriate runner based on your `CI_PLATFORM` setting.
-
-**Note for macOS users:**
-
-Due to limitations in Docker Desktop's USB passthrough, you have two options:
-
-1. **Install J-Link on host macOS** and use J-Link Remote Server:
-   ```bash
-   # On macOS host
-   brew install --cask segger-jlink
-   JLinkRemoteServer
-   
-   # In container workflows, connect to host
-   JLinkExe -ip host.docker.internal
-   ```
-
-2. **Enable USB device support** in Docker Desktop (Settings → Resources → USB Devices) and manually share J-Link devices with the container
 
 ### 4. Verify Runner Status
 
@@ -259,29 +237,12 @@ All configuration is done in the `.env` file. Copy `.env.example` to `.env` and 
 
 ### J-Link Device Not Detected
 
-**On Linux:**
-
 1. Check if the device is connected: `lsusb | grep 1366`
 2. Verify USB passthrough: `docker exec baremetal-ci-runner lsusb`
 3. Check container privileges: ensure `privileged: true` in docker-compose.yml
-4. Verify udev rules are loaded
-
-**On macOS:**
-
-1. Check if the device is visible on host: `system_profiler SPUSBDataType | grep -A 10 "J-Link"`
-2. Option A: Use Docker Desktop USB device sharing feature (Settings → Resources → USB Devices)
-3. Option B: Install J-Link on host macOS and use remote server:
+4. Verify udev rules are loaded on host:
    ```bash
-   # Terminal 1 (macOS host)
-   brew install --cask segger-jlink
-   JLinkRemoteServer -port 19020
-   
-   # Terminal 2 (in container or workflows)
-   docker exec baremetal-ci-runner JLinkExe -ip host.docker.internal:19020
-   ```
-4. Option C: Use host network mode in docker-compose:
-   ```yaml
-   network_mode: "host"
+   sudo udevadm control --reload-rules && sudo udevadm trigger
    ```
 
 ### Permission Issues with USB Devices
@@ -296,48 +257,18 @@ The container runs in privileged mode and should have access to all USB devices.
 
 ### Stopping the Runner
 
-**Cross-platform:**
-```bash
-./run.sh down
-```
-
-**Manual commands:**
-
-**On Linux:**
 ```bash
 docker-compose down
-```
-
-**On macOS:**
-```bash
-docker-compose -f docker-compose.yml -f docker-compose.macos.yml down
 ```
 
 The runner will automatically unregister from GitHub on shutdown.
 
 ### Updating the Runner
 
-**Cross-platform:**
-```bash
-./run.sh down
-./run.sh build --no-cache
-./run.sh up -d
-```
-
-**Manual commands:**
-
-**On Linux:**
 ```bash
 docker-compose down
 docker-compose build --no-cache
 docker-compose up -d
-```
-
-**On macOS:**
-```bash
-docker-compose -f docker-compose.yml -f docker-compose.macos.yml down
-docker-compose build --no-cache
-docker-compose -f docker-compose.yml -f docker-compose.macos.yml up -d
 ```
 
 ### Viewing Logs

@@ -12,20 +12,14 @@ services:
     # Single unified entrypoint that selects runner based on CI_PLATFORM
     entrypoint: ["/home/runner/entrypoint.sh"]
     
-    # Privileged mode for USB device access (Linux)
+    # Privileged mode for USB device access
     privileged: true
-    
-    # Pass all USB devices to the container
-    # Note: On macOS, USB passthrough requires Docker Desktop with USB support
-    # or installing J-Link tools on the host and using network connection
-    # Removed static device mapping, using privileged mode instead for dynamic USB access
     
     # Mount volumes for persistent data
     volumes:
       - runner-work:/home/runner/_work
       - runner-builds:/home/runner/builds
       - gitlab-runner-config:/etc/gitlab-runner
-      # Linux-specific mounts (ignored on macOS)
       # Bind mount /dev for dynamic USB device access
       - /dev:/dev:rw
     
