@@ -114,7 +114,7 @@ if [ "${CI_PLATFORM}" = "gitlab" ]; then
     RUNNER_EXECUTOR="${RUNNER_EXECUTOR:-shell}"
 
     # Register the runner if not already registered
-    if [ ! -f "/etc/gitlab-runner/config.toml" ]; then
+    if [ ! -f "/home/runner/.gitlab-runner/config.toml" ]; then
         log_info "Registering GitLab Runner..."
         
         gitlab-runner register \
@@ -126,7 +126,9 @@ if [ "${CI_PLATFORM}" = "gitlab" ]; then
             --tag-list "${RUNNER_TAGS}" \
             --run-untagged="${RUNNER_RUN_UNTAGGED:-false}" \
             --locked="${RUNNER_LOCKED:-false}" \
-            --access-level="${RUNNER_ACCESS_LEVEL:-not_protected}"
+            --access-level="${RUNNER_ACCESS_LEVEL:-not_protected}" \
+            --builds-dir "/home/runner/builds" \
+            --cache-dir "/home/runner/cache"
         
         log_info "Runner registered successfully"
     else
@@ -136,7 +138,7 @@ if [ "${CI_PLATFORM}" = "gitlab" ]; then
     # Cleanup function to unregister runner on exit
     cleanup() {
         log_info "Shutting down runner..."
-        if [ -f "/etc/gitlab-runner/config.toml" ]; then
+        if [ -f "/home/runner/.gitlab-runner/config.toml" ]; then
             gitlab-runner unregister --all-runners
         fi
     }
@@ -147,7 +149,7 @@ if [ "${CI_PLATFORM}" = "gitlab" ]; then
 
     # Start the runner
     log_info "Starting GitLab Runner..."
-    gitlab-runner run --user runner --working-directory /home/runner/builds
+    gitlab-runner run --working-directory /home/runner/builds
 
 else
     # ============================================================================
