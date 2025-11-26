@@ -4,6 +4,7 @@ FROM ubuntu:24.04
 # Build argument to select CI platform (passed from docker-compose.yml via .env)
 # Must be 'github' or 'gitlab'
 ARG CI_PLATFORM
+ARG ADDITIONAL_PACKAGES
 
 # Validate CI_PLATFORM at build time
 RUN if [ -z "${CI_PLATFORM}" ]; then \
@@ -21,8 +22,14 @@ RUN if [ -z "${CI_PLATFORM}" ]; then \
 # Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 
+RUN apt-get update
+
+RUN if [ "${ADDITIONAL_PACKAGES}" ]; then \
+      apt-get install -y ${ADDITIONAL_PACKAGES}; \
+    fi
+
 # Install base dependencies and build tools
-RUN apt-get update && apt-get install -y \
+RUN apt-get install -y \
     curl \
     wget \
     git \

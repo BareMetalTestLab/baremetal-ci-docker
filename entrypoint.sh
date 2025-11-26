@@ -43,19 +43,6 @@ else
     fi
 fi
 
-# Install additional packages if specified
-if [ -n "${ADDITIONAL_PACKAGES}" ]; then
-    log_info "Installing additional packages: ${ADDITIONAL_PACKAGES}"
-    sudo apt-get update > /dev/null 2>&1
-    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ${ADDITIONAL_PACKAGES} > /dev/null 2>&1
-    if [ $? -eq 0 ]; then
-        log_info "Additional packages installed successfully"
-    else
-        log_warn "Failed to install some packages. Continuing anyway..."
-    fi
-    sudo rm -rf /var/lib/apt/lists/*
-fi
-
 # Check for J-Link devices
 log_info "Checking for J-Link devices..."
 if command -v JLinkExe &> /dev/null; then

@@ -7,6 +7,7 @@ services:
       dockerfile: Dockerfile
       args:
         CI_PLATFORM: ${CI_PLATFORM}
+        ADDITIONAL_PACKAGES: ${ADDITIONAL_PACKAGES}
     container_name: baremetal-${CI_PLATFORM}-runner
     
     # Single unified entrypoint that selects runner based on CI_PLATFORM
