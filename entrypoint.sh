@@ -28,6 +28,7 @@ log_error() {
 # Ensure work directory exists and has correct permissions
 log_info "Setting up work directory..."
 if [ "${CI_PLATFORM}" = "gitlab" ]; then
+    echo -e "${GREEN}[INFO]${NC} CI_PLATFORM is set to gitlab"
     if [ ! -d "/home/runner/builds" ]; then
         mkdir -p /home/runner/builds
     fi
@@ -103,7 +104,12 @@ if [ "${CI_PLATFORM}" = "gitlab" ]; then
     # Register the runner if not already registered
     if [ ! -f "/home/runner/.gitlab-runner/config.toml" ]; then
         log_info "Registering GitLab Runner..."
-        
+
+        # PANIC: saving the file: open /home/runner/.gitlab-runner/config.toml: permission denied
+        sudo chmod 777 /home/runner/.gitlab-runner
+        touch /home/runner/.gitlab-runner/config.toml
+        sudo chmod 777 /home/runner/.gitlab-runner/config.toml
+
         gitlab-runner register \
             --non-interactive \
             --url "${GITLAB_URL}" \

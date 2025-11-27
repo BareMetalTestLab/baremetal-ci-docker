@@ -20,7 +20,7 @@ services:
     volumes:
       - runner-work:/home/runner/_work
       - runner-builds:/home/runner/builds
-      - gitlab-runner-config:/etc/gitlab-runner
+      - gitlab-runner-config:/home/runner/.gitlab-runner
       # Bind mount /dev for dynamic USB device access
       - /dev:/dev:rw
     
