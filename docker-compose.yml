@@ -8,7 +8,7 @@ services:
       args:
         CI_PLATFORM: ${CI_PLATFORM}
         ADDITIONAL_PACKAGES: ${ADDITIONAL_PACKAGES}
-    container_name: baremetal-${CI_PLATFORM}-runner
+    container_name: ${CONTAINER_NAME:-baremetal-ci-runner-1}
     
     # Single unified entrypoint that selects runner based on CI_PLATFORM
     entrypoint: ["/home/runner/entrypoint.sh"]
