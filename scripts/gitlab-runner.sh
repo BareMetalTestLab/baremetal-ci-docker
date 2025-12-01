@@ -20,22 +20,17 @@ setup_gitlab_runner() {
         exit 1
     fi
     
-    # Set default values
     RUNNER_NAME="${RUNNER_NAME:-baremetal-gitlab-runner}"
     RUNNER_TAGS="${RUNNER_TAGS:-baremetal,jlink,mcu}"
     RUNNER_EXECUTOR="${RUNNER_EXECUTOR:-shell}"
 
-    # Register the runner if not already registered
-    if [ ! -f "/home/runner/.gitlab-runner/config.toml" ]; then
+    # Register the runner if not already registered (check if [[runners]] section exists)
+    if ! grep -q "^\[\[runners\]\]" /etc/gitlab-runner/config.toml 2>/dev/null; then
         log_info "Registering GitLab Runner..."
-
-        # Fix permissions for config directory
-        sudo chmod 777 /home/runner/.gitlab-runner
-        touch /home/runner/.gitlab-runner/config.toml
-        sudo chmod 777 /home/runner/.gitlab-runner/config.toml
 
         gitlab-runner register \
             --non-interactive \
+            --config /etc/gitlab-runner/config.toml \
             --url "${GITLAB_URL}" \
             --registration-token "${GITLAB_REGISTRATION_TOKEN}" \
             --executor "${RUNNER_EXECUTOR}" \
@@ -47,17 +42,24 @@ setup_gitlab_runner() {
             --builds-dir "/home/runner/builds" \
             --cache-dir "/home/runner/cache"
         
+        # Fix permissions for config file after registration
+        sudo chown -R runner:runner /etc/gitlab-runner
+        sudo find /etc/gitlab-runner -type f -exec chmod 644 {} \;
+        
         log_info "Runner registered successfully"
     else
         log_info "Runner already registered"
+        # Fix permissions anyway
+        sudo chown -R runner:runner /etc/gitlab-runner
+        sudo find /etc/gitlab-runner -type f -exec chmod 644 {} \;
     fi
 }
 
 # Cleanup function to unregister runner on exit
 cleanup_gitlab_runner() {
     log_info "Shutting down GitLab runner..."
-    if [ -f "/home/runner/.gitlab-runner/config.toml" ]; then
-        gitlab-runner unregister --all-runners
+    if [ -f "/etc/gitlab-runner/config.toml" ]; then
+        gitlab-runner unregister --all-runners --config /etc/gitlab-runner/config.toml
     fi
 }
 
@@ -70,7 +72,7 @@ start_gitlab_runner() {
     trap 'cleanup_gitlab_runner; exit 143' TERM
     
     # Start the runner
-    gitlab-runner run --working-directory /home/runner/builds
+    gitlab-runner run --config /etc/gitlab-runner/config.toml --working-directory /home/runner/builds
 }
 
 # Main execution function for GitLab runner

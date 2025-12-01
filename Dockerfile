@@ -127,7 +127,9 @@ RUN if [ "${CI_PLATFORM}" = "gitlab" ]; then \
         apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
         usermod -aG sudo gitlab-runner && \
         mkdir -p /home/runner/builds && \
-        chown -R runner:runner /home/runner/builds; \
+        chown -R runner:runner /home/runner/builds && \
+        mkdir -p /etc/gitlab-runner && \
+        chown -R runner:runner /etc/gitlab-runner; \
     else \
         echo "Skipping GitLab Runner installation (CI_PLATFORM=${CI_PLATFORM})"; \
     fi
