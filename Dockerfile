@@ -136,9 +136,11 @@ USER runner
 # Skip runner dependencies installation to avoid X11 libraries
 # The runner works without .NET dependencies for basic shell/script jobs
 
-# Copy the entrypoint script
+# Copy scripts directory and entrypoint
+COPY --chown=runner:runner scripts/ /home/runner/scripts/
 COPY --chown=runner:runner entrypoint.sh /home/runner/entrypoint.sh
-RUN chmod +x /home/runner/entrypoint.sh
+RUN chmod +x /home/runner/entrypoint.sh && \
+    chmod +x /home/runner/scripts/*.sh
 
 # Set working directory
 WORKDIR /home/runner
