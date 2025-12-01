@@ -20,25 +20,20 @@ setup_gitlab_runner() {
         exit 1
     fi
     
-    RUNNER_NAME="${RUNNER_NAME:-baremetal-gitlab-runner}"
-    RUNNER_TAGS="${RUNNER_TAGS:-baremetal,jlink,mcu}"
     RUNNER_EXECUTOR="${RUNNER_EXECUTOR:-shell}"
 
     # Register the runner if not already registered (check if [[runners]] section exists)
     if ! grep -q "^\[\[runners\]\]" /etc/gitlab-runner/config.toml 2>/dev/null; then
         log_info "Registering GitLab Runner..."
 
+        # Note: When using authentication token (glrt-*), tags and other settings
+        # are configured in GitLab UI, not via registration parameters
         gitlab-runner register \
             --non-interactive \
             --config /etc/gitlab-runner/config.toml \
             --url "${GITLAB_URL}" \
-            --registration-token "${GITLAB_REGISTRATION_TOKEN}" \
+            --token "${GITLAB_REGISTRATION_TOKEN}" \
             --executor "${RUNNER_EXECUTOR}" \
-            --description "${RUNNER_NAME}" \
-            --tag-list "${RUNNER_TAGS}" \
-            --run-untagged="${RUNNER_RUN_UNTAGGED:-false}" \
-            --locked="${RUNNER_LOCKED:-false}" \
-            --access-level="${RUNNER_ACCESS_LEVEL:-not_protected}" \
             --builds-dir "/home/runner/builds" \
             --cache-dir "/home/runner/cache"
         
