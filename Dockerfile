@@ -5,6 +5,7 @@ FROM ubuntu:24.04
 # Must be 'github' or 'gitlab'
 ARG CI_PLATFORM
 ARG ADDITIONAL_PACKAGES
+ARG ENABLE_JLINK
 
 # Validate CI_PLATFORM at build time
 RUN if [ -z "${CI_PLATFORM}" ]; then \
@@ -63,24 +64,29 @@ RUN if [ -f /bin/udevadm ]; then \
     echo 'exit 0' >> /bin/udevadm && \
     chmod +x /bin/udevadm
 
-# Install Segger J-Link Software
+# Install Segger J-Link Software (optional, controlled by ENABLE_JLINK)
 # Note: CLI tools work without X11 dependencies (--force-depends ignores GUI deps)
 # GUI tools (J-Link Configurator) won't work, but CLI (JLinkExe, JLinkGDBServer) will
 WORKDIR /tmp
-RUN ARCH=$(uname -m) && \
-    JLINK_VERSION="V794e" && \
-    if [ "$ARCH" = "x86_64" ]; then \
-        wget --post-data "accept_license_agreement=accepted" \
-        https://www.segger.com/downloads/jlink/JLink_Linux_${JLINK_VERSION}_x86_64.deb \
-        -O JLink.deb && \
-        dpkg --force-depends -i JLink.deb && \
-        rm JLink.deb; \
-    elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then \
-        wget --post-data "accept_license_agreement=accepted" \
-        https://www.segger.com/downloads/jlink/JLink_Linux_${JLINK_VERSION}_arm64.deb \
-        -O JLink.deb && \
-        dpkg --force-depends -i JLink.deb && \
-        rm JLink.deb; \
+RUN if [ "${ENABLE_JLINK}" = "true" ]; then \
+        ARCH=$(uname -m) && \
+        JLINK_VERSION="V794e" && \
+        if [ "$ARCH" = "x86_64" ]; then \
+            wget --post-data "accept_license_agreement=accepted" \
+            https://www.segger.com/downloads/jlink/JLink_Linux_${JLINK_VERSION}_x86_64.deb \
+            -O JLink.deb && \
+            dpkg --force-depends -i JLink.deb && \
+            rm JLink.deb; \
+        elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then \
+            wget --post-data "accept_license_agreement=accepted" \
+            https://www.segger.com/downloads/jlink/JLink_Linux_${JLINK_VERSION}_arm64.deb \
+            -O JLink.deb && \
+            dpkg --force-depends -i JLink.deb && \
+            rm JLink.deb; \
+        fi && \
+        echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="1366", MODE="0666"' > /etc/udev/rules.d/99-jlink.rules; \
+    else \
+        echo "Skipping J-Link installation (ENABLE_JLINK=${ENABLE_JLINK})"; \
     fi
 
 # Restore real udevadm after J-Link installation
@@ -88,9 +94,6 @@ RUN if [ -f /bin/udevadm.real ]; then \
         rm /bin/udevadm && \
         mv /bin/udevadm.real /bin/udevadm; \
     fi
-
-# Add udev rules for J-Link devices
-RUN echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="1366", MODE="0666"' > /etc/udev/rules.d/99-jlink.rules
 
 # Set up GitHub Actions runner directory
 WORKDIR /home/runner

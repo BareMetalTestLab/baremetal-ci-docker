@@ -18,11 +18,8 @@ else
     setup_work_directory "/home/runner/_work"
 fi
 
-# Check for J-Link devices
-check_jlink_devices
-
-# Configure udev rules for specific J-Link devices if serial numbers are provided
-configure_jlink_udev_rules
+# Check for J-Link devices (if installed)
+check_jlink_devices || true
 
 # Load and execute platform-specific runner
 if [ "${CI_PLATFORM}" = "gitlab" ]; then

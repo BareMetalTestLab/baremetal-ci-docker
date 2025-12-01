@@ -55,25 +55,3 @@ check_jlink_devices() {
         return 1
     fi
 }
-
-# Configure udev rules for specific J-Link devices
-configure_jlink_udev_rules() {
-    if [ -n "${JLINK_SERIAL_NUMBERS}" ]; then
-        log_info "Configuring udev rules for specific J-Link devices..."
-        IFS=',' read -ra SERIALS <<< "${JLINK_SERIAL_NUMBERS}"
-        for SERIAL in "${SERIALS[@]}"; do
-            SERIAL=$(echo "$SERIAL" | xargs) # Trim whitespace
-            if [ -n "$SERIAL" ]; then
-                log_info "Adding udev rule for J-Link S/N: ${SERIAL}"
-                echo "SUBSYSTEM==\"usb\", ATTR{idVendor}==\"1366\", ATTR{serial}==\"${SERIAL}\", MODE=\"0666\", GROUP=\"plugdev\"" | sudo tee -a /etc/udev/rules.d/99-jlink-specific.rules > /dev/null
-            fi
-        done
-        
-        # Reload udev rules
-        if [ -f /etc/udev/rules.d/99-jlink-specific.rules ]; then
-            log_info "Reloading udev rules..."
-            sudo udevadm control --reload-rules 2>/dev/null || true
-            sudo udevadm trigger 2>/dev/null || true
-        fi
-    fi
-}
