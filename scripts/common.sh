@@ -38,9 +38,12 @@ setup_work_directory() {
 
 # Check for J-Link devices
 check_jlink_devices() {
-    log_info "Checking for J-Link devices..."
+    if [ "${ENABLE_JLINK}" != "true" ]; then
+        return 0
+    fi
     
     if command -v JLinkExe &> /dev/null; then
+        log_info "Checking for J-Link devices..."
         JLINK_COUNT=$(JLinkExe -CommanderScript /dev/null 2>&1 | grep -c "J-Link" || echo "0")
         if [ "${JLINK_COUNT}" -gt "0" ]; then
             log_info "J-Link devices detected"
@@ -50,8 +53,6 @@ check_jlink_devices() {
             log_warn "Make sure USB devices are properly passed to the container (privileged mode + /dev mount)."
             return 1
         fi
-    else
-        log_warn "JLinkExe not found in PATH"
-        return 1
     fi
+    return 0
 }

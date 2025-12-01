@@ -19,7 +19,7 @@ else
 fi
 
 # Check for J-Link devices (if installed)
-check_jlink_devices || true
+check_jlink_devices
 
 # Load and execute platform-specific runner
 if [ "${CI_PLATFORM}" = "gitlab" ]; then

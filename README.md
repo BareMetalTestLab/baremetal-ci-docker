@@ -24,7 +24,7 @@ For detailed GitLab-specific documentation, see [README.gitlab.md](README.gitlab
 
 - **GitHub Actions Self-Hosted Runner**: Runs CI/CD workflows directly on hardware
 - **Segger J-Link Support**: Full J-Link driver installation for MCU programming and debugging
-- **USB Device Passthrough**: All J-Link devices are automatically passed through to the container
+- **USB Device Passthrough**: All USB devices are automatically passed through to the container
 - **Automatic Runner Registration**: Configures and registers with GitHub on startup
 - **Persistent Workspace**: Runner work directory is preserved across container restarts
 
