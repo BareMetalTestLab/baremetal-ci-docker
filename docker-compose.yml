@@ -52,7 +52,6 @@ services:
       - RUNNER_NAME=${RUNNER_NAME:-baremetal-ci-runner}
       - RUNNER_LABELS=${RUNNER_LABELS:-baremetal,jlink,mcu}
       - RUNNER_TAGS=${RUNNER_TAGS:-baremetal,jlink,mcu}
-      - JLINK_SERIAL_NUMBERS=${JLINK_SERIAL_NUMBERS}
       - ADDITIONAL_PACKAGES=${ADDITIONAL_PACKAGES}
     
     # Restart policy

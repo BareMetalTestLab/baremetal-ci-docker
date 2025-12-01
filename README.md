@@ -224,8 +224,9 @@ All configuration is done in the `.env` file. Copy `.env.example` to `.env` and 
 
 | Variable | Required | Description | Example |
 |----------|----------|-------------|---------|
-| `JLINK_SERIAL_NUMBERS` | No | Comma-separated J-Link serial numbers. Leave empty to use all devices | `123456789,987654321` |
-| `ADDITIONAL_PACKAGES` | No | Space-separated apt packages to install on startup | `gdb-multiarch openocd` |
+| `CONTAINER_NAME` | No | Unique container name (change if cloning repo multiple times) | `baremetal-ci-runner-1` |
+| `ENABLE_JLINK` | No | Install Segger J-Link software (`true`/`false`) | `false` |
+| `ADDITIONAL_PACKAGES` | No | Space-separated apt packages to install during build | `gdb-multiarch openocd` |
 
 ## Troubleshooting
 
