@@ -56,3 +56,31 @@ check_jlink_devices() {
     fi
     return 0
 }
+
+# Check for PEAK CAN devices
+check_peakcan_devices() {
+    if [ "${ENABLE_PEAKCAN}" != "true" ]; then
+        return 0
+    fi
+    
+    log_info "Checking for PEAK CAN devices..."
+    if [ -d "/dev" ]; then
+        PCAN_COUNT=$(ls -1 /dev/pcan* 2>/dev/null | wc -l || echo "0")
+        if [ "${PCAN_COUNT}" -gt "0" ]; then
+            log_info "PEAK CAN devices detected: ${PCAN_COUNT} device(s)"
+            ls -la /dev/pcan* 2>/dev/null || true
+            return 0
+        else
+            log_warn "No PEAK CAN devices detected."
+            log_warn "Make sure USB devices are properly passed to the container (privileged mode + /dev mount)."
+            # Also check for USB PEAK devices
+            PCAN_USB=$(lsusb | grep -i "0c72" || echo "")
+            if [ -n "${PCAN_USB}" ]; then
+                log_info "PEAK CAN USB device found in lsusb:"
+                echo "${PCAN_USB}"
+            fi
+            return 1
+        fi
+    fi
+    return 0
+}

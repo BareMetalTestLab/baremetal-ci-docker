@@ -6,6 +6,7 @@ FROM ubuntu:24.04
 ARG CI_PLATFORM
 ARG ADDITIONAL_PACKAGES
 ARG ENABLE_JLINK
+ARG ENABLE_PEAKCAN
 
 # Validate CI_PLATFORM at build time
 RUN if [ -z "${CI_PLATFORM}" ]; then \
@@ -93,6 +94,70 @@ RUN if [ "${ENABLE_JLINK}" = "true" ]; then \
 RUN if [ -f /bin/udevadm.real ]; then \
         rm /bin/udevadm && \
         mv /bin/udevadm.real /bin/udevadm; \
+    fi
+
+# Install PEAK CAN drivers (optional, controlled by ENABLE_PEAKCAN)
+# Install kernel headers and build dependencies for PEAK CAN driver
+USER root
+RUN if [ "${ENABLE_PEAKCAN}" = "true" ]; then \
+        apt-get update && \
+        apt-get install -y build-essential kmod && \
+        (apt-get install -y linux-headers-$(uname -r) || \
+         apt-get install -y linux-headers-generic || \
+         echo "Warning: Could not install kernel headers, continuing anyway") && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*; \
+    fi
+
+WORKDIR /tmp
+RUN if [ "${ENABLE_PEAKCAN}" = "true" ]; then \
+        ARCH=$(uname -m) && \
+        PCAN_VERSION="8.17.0" && \
+        KERNEL_VERSION=$(uname -r) && \
+        if [ -d "/usr/src/linux-headers-${KERNEL_VERSION}" ]; then \
+            export KERNEL_LOCATION=/usr/src/linux-headers-${KERNEL_VERSION}; \
+        elif [ -d "/lib/modules/${KERNEL_VERSION}/build" ]; then \
+            export KERNEL_LOCATION=/lib/modules/${KERNEL_VERSION}/build; \
+        else \
+            GENERIC_HEADERS=$(ls -d /usr/src/linux-headers-*-generic 2>/dev/null | head -n1); \
+            if [ -n "${GENERIC_HEADERS}" ]; then \
+                export KERNEL_LOCATION=${GENERIC_HEADERS}; \
+            else \
+                export KERNEL_LOCATION=/usr/src/linux-headers-generic; \
+            fi; \
+        fi && \
+        echo "Using KERNEL_LOCATION: ${KERNEL_LOCATION}" && \
+        if [ "$ARCH" = "x86_64" ]; then \
+            wget -q https://www.peak-system.com/fileadmin/media/linux/files/peak-linux-driver-${PCAN_VERSION}.tar.gz && \
+            tar -xzf peak-linux-driver-${PCAN_VERSION}.tar.gz && \
+            cd peak-linux-driver-${PCAN_VERSION} && \
+            (make -C driver KERNEL_LOCATION=${KERNEL_LOCATION} || echo "Warning: Driver compilation failed, continuing") && \
+            make -C lib && \
+            make -C test && \
+            (make -C driver install || echo "Warning: Driver installation failed, continuing") && \
+            make -C lib install && \
+            make -C test install && \
+            cd .. && \
+            rm -rf peak-linux-driver-${PCAN_VERSION}* && \
+            echo 'KERNEL=="pcan*", MODE="0666"' > /etc/udev/rules.d/45-pcan.rules && \
+            echo 'SUBSYSTEM=="usb", ATTRS{idVendor}=="0c72", MODE="0666"' >> /etc/udev/rules.d/45-pcan.rules; \
+        elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then \
+            wget -q https://www.peak-system.com/fileadmin/media/linux/files/peak-linux-driver-${PCAN_VERSION}.tar.gz && \
+            tar -xzf peak-linux-driver-${PCAN_VERSION}.tar.gz && \
+            cd peak-linux-driver-${PCAN_VERSION} && \
+            (make -C driver KERNEL_LOCATION=${KERNEL_LOCATION} || echo "Warning: Driver compilation failed, continuing") && \
+            make -C lib && \
+            make -C test && \
+            (make -C driver install || echo "Warning: Driver installation failed, continuing") && \
+            make -C lib install && \
+            make -C test install && \
+            cd .. && \
+            rm -rf peak-linux-driver-${PCAN_VERSION}* && \
+            echo 'KERNEL=="pcan*", MODE="0666"' > /etc/udev/rules.d/45-pcan.rules && \
+            echo 'SUBSYSTEM=="usb", ATTRS{idVendor}=="0c72", MODE="0666"' >> /etc/udev/rules.d/45-pcan.rules; \
+        fi; \
+    else \
+        echo "Skipping PEAK CAN installation (ENABLE_PEAKCAN=${ENABLE_PEAKCAN})"; \
     fi
 
 # Set up GitHub Actions runner directory

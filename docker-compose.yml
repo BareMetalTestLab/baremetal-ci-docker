@@ -9,6 +9,7 @@ services:
         CI_PLATFORM: ${CI_PLATFORM}
         ADDITIONAL_PACKAGES: ${ADDITIONAL_PACKAGES}
         ENABLE_JLINK: ${ENABLE_JLINK:-false}
+        ENABLE_PEAKCAN: ${ENABLE_PEAKCAN:-false}
     container_name: ${CONTAINER_NAME:-baremetal-ci-runner-1}
     
     # Single unified entrypoint that selects runner based on CI_PLATFORM
@@ -50,8 +51,8 @@ services:
       
       # Common configuration (both platforms)
       - RUNNER_NAME=${RUNNER_NAME:-baremetal-ci-runner}
-      - RUNNER_LABELS=${RUNNER_LABELS:-baremetal,jlink,mcu}
-      - RUNNER_TAGS=${RUNNER_TAGS:-baremetal,jlink,mcu}
+      - RUNNER_LABELS=${RUNNER_LABELS:-baremetal,jlink,peakcan,mcu}
+      - RUNNER_TAGS=${RUNNER_TAGS:-baremetal,jlink,peakcan,mcu}
       - ADDITIONAL_PACKAGES=${ADDITIONAL_PACKAGES}
     
     # Restart policy

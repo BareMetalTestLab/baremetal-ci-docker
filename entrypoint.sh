@@ -21,6 +21,9 @@ fi
 # Check for J-Link devices (if installed)
 check_jlink_devices
 
+# Check for PEAK CAN devices (if installed)
+check_peakcan_devices
+
 # Load and execute platform-specific runner
 if [ "${CI_PLATFORM}" = "gitlab" ]; then
     source /home/runner/scripts/gitlab-runner.sh
