@@ -57,30 +57,63 @@ check_jlink_devices() {
     return 0
 }
 
-# Check for PEAK CAN devices
-check_peakcan_devices() {
+# Setup SocketCAN interface for PEAK CAN devices
+setup_socketcan() {
+    # Skip if PEAK CAN is not enabled
     if [ "${ENABLE_PEAKCAN}" != "true" ]; then
         return 0
     fi
     
-    log_info "Checking for PEAK CAN devices..."
-    if [ -d "/dev" ]; then
-        PCAN_COUNT=$(ls -1 /dev/pcan* 2>/dev/null | wc -l || echo "0")
-        if [ "${PCAN_COUNT}" -gt "0" ]; then
-            log_info "PEAK CAN devices detected: ${PCAN_COUNT} device(s)"
-            ls -la /dev/pcan* 2>/dev/null || true
-            return 0
-        else
-            log_warn "No PEAK CAN devices detected."
-            log_warn "Make sure USB devices are properly passed to the container (privileged mode + /dev mount)."
-            # Also check for USB PEAK devices
-            PCAN_USB=$(lsusb | grep -i "0c72" || echo "")
-            if [ -n "${PCAN_USB}" ]; then
-                log_info "PEAK CAN USB device found in lsusb:"
-                echo "${PCAN_USB}"
-            fi
-            return 1
-        fi
+    local BAUDRATE=${PCAN_BAUDRATE:-125000}
+    
+    log_info "Setting up SocketCAN interface with baudrate ${BAUDRATE}..."
+    
+    # Check if PEAK CAN USB device is connected
+    if ! lsusb | grep -q "0c72"; then
+        log_warn "No PEAK CAN USB device detected (vendor ID 0c72)"
+        return 1
     fi
+    
+    log_info "PEAK CAN USB device detected"
+    
+    # Load required kernel modules (should be on host)
+    if [ -d "/lib/modules/$(uname -r)" ]; then
+        sudo modprobe can 2>/dev/null || log_warn "Could not load 'can' module"
+        sudo modprobe can_raw 2>/dev/null || log_warn "Could not load 'can_raw' module"
+        sudo modprobe peak_usb 2>/dev/null || log_warn "Could not load 'peak_usb' module (may need to be loaded on host)"
+    fi
+    
+    # Wait a bit for device to appear
+    sleep 1
+    
+    # Find CAN interface
+    CAN_INTERFACE=$(ip link show | grep -o "can[0-9]*" | head -n 1)
+    
+    if [ -z "${CAN_INTERFACE}" ]; then
+        log_warn "No CAN interface found. The peak_usb module may need to be loaded on the host system."
+        log_info "To load the module on host, run: sudo modprobe peak_usb"
+        return 1
+    fi
+    
+    log_info "Found CAN interface: ${CAN_INTERFACE}"
+    
+    # Bring down the interface first (in case it's already up)
+    sudo ip link set ${CAN_INTERFACE} down 2>/dev/null || true
+    
+    # Configure and bring up the interface
+    sudo ip link set ${CAN_INTERFACE} type can bitrate ${BAUDRATE} || {
+        log_error "Failed to configure ${CAN_INTERFACE} with bitrate ${BAUDRATE}"
+        return 1
+    }
+    
+    sudo ip link set ${CAN_INTERFACE} up || {
+        log_error "Failed to bring up ${CAN_INTERFACE}"
+        return 1
+    }
+    
+    log_info "SocketCAN interface ${CAN_INTERFACE} is up with baudrate ${BAUDRATE}"
+    log_info "You can test it with: candump ${CAN_INTERFACE}"
+    
     return 0
 }
+

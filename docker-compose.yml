@@ -51,15 +51,17 @@ services:
       
       # Common configuration (both platforms)
       - RUNNER_NAME=${RUNNER_NAME:-baremetal-ci-runner}
-      - RUNNER_LABELS=${RUNNER_LABELS:-baremetal,jlink,peakcan,mcu}
-      - RUNNER_TAGS=${RUNNER_TAGS:-baremetal,jlink,peakcan,mcu}
+      - RUNNER_LABELS=${RUNNER_LABELS:-baremetal,jlink,socketcan,mcu}
+      - RUNNER_TAGS=${RUNNER_TAGS:-baremetal,jlink,socketcan,mcu}
       - ADDITIONAL_PACKAGES=${ADDITIONAL_PACKAGES}
+      - ENABLE_PEAKCAN=${ENABLE_PEAKCAN:-false}
+      - PCAN_BAUDRATE=${PCAN_BAUDRATE:-125000}
     
     # Restart policy
     restart: unless-stopped
     
-    # Network mode (host mode for better USB device detection)
-    network_mode: bridge
+    # Network mode (host mode for SocketCAN access)
+    network_mode: host
 
 volumes:
   runner-work:
