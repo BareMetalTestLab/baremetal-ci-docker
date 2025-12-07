@@ -1,6 +1,6 @@
-# Baremetal MCU CI Testing with GitHub/GitLab Runner and Segger J-Link
+# Baremetal MCU CI Testing with GitHub/GitLab Runner, Segger J-Link and PEAK CAN
 
-Docker container for continuous integration testing of baremetal microcontroller devices. This container includes self-hosted CI runners (GitHub Actions or GitLab CI) with Segger J-Link support for flashing and debugging MCU hardware.
+Docker container for continuous integration testing of baremetal microcontroller devices. This container includes self-hosted CI runners (GitHub Actions or GitLab CI) with Segger J-Link support for flashing and debugging MCU hardware, plus PEAK CAN support via SocketCAN for CAN bus testing.
 
 ## Choose Your CI Platform
 
@@ -23,9 +23,11 @@ For detailed GitLab-specific documentation, see [README.gitlab.md](README.gitlab
 ## Features
 
 - **GitHub Actions Self-Hosted Runner**: Runs CI/CD workflows directly on hardware
+- **GitLab Runner Support**: Alternative to GitHub Actions for GitLab CI/CD
 - **Segger J-Link Support**: Full J-Link driver installation for MCU programming and debugging
+- **PEAK CAN Support**: SocketCAN interface for CAN bus communication and testing
 - **USB Device Passthrough**: All USB devices are automatically passed through to the container
-- **Automatic Runner Registration**: Configures and registers with GitHub on startup
+- **Automatic Runner Registration**: Configures and registers with GitHub/GitLab on startup
 - **Persistent Workspace**: Runner work directory is preserved across container restarts
 
 ## Prerequisites
@@ -33,7 +35,8 @@ For detailed GitLab-specific documentation, see [README.gitlab.md](README.gitlab
 - Docker Engine (20.10+)
 - Docker Compose (2.0+)
 - GitHub Personal Access Token with `repo` and `admin:org` (if using organization) permissions
-- Segger J-Link device connected via USB
+- Segger J-Link device connected via USB (optional)
+- PEAK CAN USB device connected (optional, for CAN bus testing)
 - **Linux host required** for USB device passthrough
 
 ### Platform-Specific Requirements
@@ -41,6 +44,7 @@ For detailed GitLab-specific documentation, see [README.gitlab.md](README.gitlab
 **Linux:**
 - Direct USB device passthrough supported
 - Requires privileged container mode
+- For PEAK CAN: `peak_usb` kernel module must be available on host
 
 ## Quick Start
 
@@ -178,6 +182,159 @@ docker exec baremetal-ci-runner JLinkExe -CommanderScript /dev/null
 docker exec baremetal-ci-runner JLinkExe -device <MCU_NAME> -if SWD -speed 4000 -autoconnect 1 -CommanderScript flash.jlink
 ```
 
+## PEAK CAN Support (SocketCAN)
+
+The container automatically configures PEAK CAN USB devices as SocketCAN interfaces on startup. This provides a standard Linux CAN interface for testing.
+
+### Automatic Configuration
+
+When the container starts, it will:
+1. Detect PEAK CAN USB devices (vendor ID 0x0c72)
+2. Load required kernel modules (`peak_usb`, `can`, `can_raw`)
+3. Configure the CAN interface with the baudrate from `PCAN_BAUDRATE` (default: 125000 bps)
+4. Bring up the `can0` interface automatically
+
+### Using CAN in CI Workflows
+
+**Example GitHub Actions workflow:**
+
+```yaml
+name: CAN Bus Testing
+
+on: [push, pull_request]
+
+jobs:
+  can-test:
+    runs-on: [self-hosted, baremetal, socketcan]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Check CAN interface
+        run: |
+          ip -details link show can0
+          # Should show: bitrate 125000 sample-point 0.875
+      
+      - name: Monitor CAN traffic
+        run: |
+          # Start monitoring in background
+          candump can0 > can_traffic.log &
+          CANDUMP_PID=$!
+          
+          # Your CAN test commands here
+          sleep 5
+          
+          # Stop monitoring
+          kill $CANDUMP_PID
+          cat can_traffic.log
+      
+      - name: Send CAN message
+        run: |
+          # Send a CAN message (ID 0x123, 8 bytes of data)
+          cansend can0 123#1122334455667788
+      
+      - name: Python CAN example
+        run: |
+          python3 << 'EOF'
+          import can
+          
+          # Open CAN bus
+          bus = can.Bus(interface='socketcan', channel='can0')
+          
+          # Send message
+          msg = can.Message(arbitration_id=0x123,
+                          data=[0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88],
+                          is_extended_id=False)
+          bus.send(msg)
+          print(f"Sent: {msg}")
+          
+          # Receive message (with timeout)
+          msg = bus.recv(timeout=1.0)
+          if msg:
+              print(f"Received: {msg}")
+          
+          bus.shutdown()
+          EOF
+```
+
+**Example GitLab CI pipeline:**
+
+```yaml
+test_can_communication:
+  tags:
+    - baremetal
+    - socketcan
+  script:
+    - ip -details link show can0
+    - candump can0 &
+    - sleep 1
+    - cansend can0 123#DEADBEEF
+    - pkill candump
+```
+
+### Reconfiguring CAN Baudrate
+
+You can change the CAN baudrate during CI execution:
+
+```bash
+# Stop the interface
+sudo ip link set can0 down
+
+# Change baudrate (e.g., to 500 kbit/s)
+sudo ip link set can0 type can bitrate 500000
+
+# Bring interface back up
+sudo ip link set can0 up
+
+# Verify
+ip -details link show can0
+```
+
+**Common baudrates:**
+- 125000 (125 kbit/s) - default
+- 250000 (250 kbit/s)
+- 500000 (500 kbit/s)
+- 1000000 (1 Mbit/s)
+
+### Available CAN Utilities
+
+The container includes `can-utils` package with:
+
+- `candump` - Display CAN messages
+- `cansend` - Send single CAN messages
+- `cangen` - Generate random CAN traffic
+- `cansequence` - Send and check sequence of CAN messages
+- `cansniffer` - Interactive CAN traffic analyzer
+- `canplayer` - Replay CAN log files
+- `canlogger` - Log CAN traffic to file
+
+### Troubleshooting CAN
+
+**CAN interface not appearing:**
+
+1. Check if PEAK CAN device is connected:
+   ```bash
+   docker exec baremetal-ci-runner lsusb | grep 0c72
+   ```
+
+2. Load `peak_usb` module on host:
+   ```bash
+   sudo modprobe peak_usb
+   ```
+
+3. Check container logs:
+   ```bash
+   docker-compose logs | grep -i can
+   ```
+
+**Permission denied errors:**
+
+The container runs with limited sudo access. Only these commands are allowed:
+- `sudo ip` - for managing CAN interfaces
+- `sudo modprobe` - for loading kernel modules
+- `sudo chown` - for file permissions
+
 ## Configuration Options
 
 ### Environment Variables
@@ -226,6 +383,7 @@ All configuration is done in the `.env` file. Copy `.env.example` to `.env` and 
 |----------|----------|-------------|---------|
 | `CONTAINER_NAME` | No | Unique container name (change if cloning repo multiple times) | `baremetal-ci-runner-1` |
 | `ENABLE_JLINK` | No | Install Segger J-Link software (`true`/`false`) | `false` |
+| `PCAN_BAUDRATE` | No | CAN bus baudrate in bits/second for PEAK CAN device | `125000` |
 | `ADDITIONAL_PACKAGES` | No | Space-separated apt packages to install during build | `gdb-multiarch openocd` |
 
 ## Troubleshooting

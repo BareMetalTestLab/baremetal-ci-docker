@@ -6,6 +6,7 @@ FROM ubuntu:24.04
 ARG CI_PLATFORM
 ARG ADDITIONAL_PACKAGES
 ARG ENABLE_JLINK
+ARG ENABLE_PEAKCAN
 
 # Validate CI_PLATFORM at build time
 RUN if [ -z "${CI_PLATFORM}" ]; then \
@@ -41,19 +42,27 @@ RUN apt-get install -y \
     ca-certificates \
     libusb-1.0-0 \
     udev \
-    usbutils \
-    cmake \
-    gcc-arm-none-eabi \
-    python3 \
-    python3-pip \
-    python3-venv \
-    && apt-get clean \
+    usbutils
+
+# Install SocketCAN utilities (optional, controlled by ENABLE_PEAKCAN)
+RUN if [ "${ENABLE_PEAKCAN}" = "true" ]; then \
+        apt-get install -y can-utils iproute2; \
+    else \
+        echo "Skipping SocketCAN utilities installation (ENABLE_PEAKCAN=${ENABLE_PEAKCAN})"; \
+    fi
+
+RUN apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Create a user for the GitHub runner (avoid running as root)
 RUN useradd -m -s /bin/bash runner && \
     usermod -aG sudo runner && \
-    echo "runner ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+    echo "# Limited sudo access for CI runner" >> /etc/sudoers.d/runner && \
+    echo "runner ALL=(ALL) NOPASSWD: /usr/sbin/ip" >> /etc/sudoers.d/runner && \
+    echo "runner ALL=(ALL) NOPASSWD: /usr/sbin/modprobe" >> /etc/sudoers.d/runner && \
+    echo "runner ALL=(ALL) NOPASSWD: /usr/bin/chown" >> /etc/sudoers.d/runner && \
+    echo "runner ALL=(ALL) NOPASSWD: /usr/bin/find" >> /etc/sudoers.d/runner && \
+    chmod 0440 /etc/sudoers.d/runner
 
 # Workaround: J-Link postinstall script calls udevadm which doesn't work in Docker build
 # Temporarily replace udevadm with a stub that does nothing

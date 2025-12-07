@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Unified entrypoint script for GitHub Actions / GitLab Runner with J-Link support
+# Unified entrypoint script for GitHub Actions / GitLab Runner with J-Link and SocketCAN support
 # Selects runner based on CI_PLATFORM environment variable
 # Note: CI_PLATFORM validation is done at build time in Dockerfile
 
@@ -20,6 +20,9 @@ fi
 
 # Check for J-Link devices (if installed)
 check_jlink_devices
+
+# Setup SocketCAN interface for PEAK CAN devices
+setup_socketcan || log_warn "PEAK CAN setup failed, continuing without CAN support"
 
 # Load and execute platform-specific runner
 if [ "${CI_PLATFORM}" = "gitlab" ]; then
