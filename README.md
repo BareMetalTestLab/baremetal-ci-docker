@@ -8,9 +8,9 @@ This Docker image supports both **GitHub Actions** and **GitLab CI**. Select you
 
 ```bash
 # In .env file
-CI_PLATFORM=github    # for GitHub Actions
+RUNNER_PLATFORM=github    # for GitHub Actions
 # or
-CI_PLATFORM=gitlab    # for GitLab CI
+RUNNER_PLATFORM=gitlab    # for GitLab CI
 ```
 
 Then simply run:

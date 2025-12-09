@@ -3,20 +3,22 @@ FROM ubuntu:24.04
 
 # Build argument to select CI platform (passed from docker-compose.yml via .env)
 # Must be 'github' or 'gitlab'
-ARG CI_PLATFORM
+# Note: Using RUNNER_PLATFORM instead of CI_PLATFORM to avoid conflicts with
+# GitLab CI predefined variables (CI_ prefix is reserved)
+ARG RUNNER_PLATFORM
 ARG ADDITIONAL_PACKAGES
 ARG ENABLE_JLINK
 ARG ENABLE_PEAKCAN
 
-# Validate CI_PLATFORM at build time
-RUN if [ -z "${CI_PLATFORM}" ]; then \
-        echo "ERROR: CI_PLATFORM is not set"; \
-        echo "Please set CI_PLATFORM in your .env file to 'github' or 'gitlab'"; \
+# Validate RUNNER_PLATFORM at build time
+RUN if [ -z "${RUNNER_PLATFORM}" ]; then \
+        echo "ERROR: RUNNER_PLATFORM is not set"; \
+        echo "Please set RUNNER_PLATFORM in your .env file to 'github' or 'gitlab'"; \
         exit 1; \
     fi && \
-    if [ "${CI_PLATFORM}" != "github" ] && [ "${CI_PLATFORM}" != "gitlab" ]; then \
-        echo "ERROR: Invalid CI_PLATFORM=${CI_PLATFORM}"; \
-        echo "CI_PLATFORM must be 'github' or 'gitlab'"; \
+    if [ "${RUNNER_PLATFORM}" != "github" ] && [ "${RUNNER_PLATFORM}" != "gitlab" ]; then \
+        echo "ERROR: Invalid RUNNER_PLATFORM=${RUNNER_PLATFORM}"; \
+        echo "RUNNER_PLATFORM must be 'github' or 'gitlab'"; \
         echo "Running both runners simultaneously is not supported"; \
         exit 1; \
     fi
@@ -24,35 +26,41 @@ RUN if [ -z "${CI_PLATFORM}" ]; then \
 # Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update
-
-RUN if [ "${ADDITIONAL_PACKAGES}" ]; then \
-      apt-get install -y ${ADDITIONAL_PACKAGES}; \
-    fi
-
 # Install base dependencies and build tools
-RUN apt-get install -y \
-    curl \
-    wget \
-    git \
-    jq \
-    sudo \
-    tar \
-    unzip \
-    ca-certificates \
-    libusb-1.0-0 \
-    udev \
-    usbutils
+# Note: apt-get clean and cache removal in same RUN to reduce image size
+RUN apt-get update && \
+    apt-get install -y \
+        curl \
+        wget \
+        git \
+        jq \
+        sudo \
+        tar \
+        unzip \
+        ca-certificates \
+        libusb-1.0-0 \
+        udev \
+        usbutils && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Install additional packages if specified
+RUN if [ "${ADDITIONAL_PACKAGES}" ]; then \
+        apt-get update && \
+        apt-get install -y ${ADDITIONAL_PACKAGES} && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*; \
+    fi
 
 # Install SocketCAN utilities (optional, controlled by ENABLE_PEAKCAN)
 RUN if [ "${ENABLE_PEAKCAN}" = "true" ]; then \
-        apt-get install -y can-utils iproute2; \
+        apt-get update && \
+        apt-get install -y can-utils iproute2 && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*; \
     else \
         echo "Skipping SocketCAN utilities installation (ENABLE_PEAKCAN=${ENABLE_PEAKCAN})"; \
     fi
-
-RUN apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Create a user for the GitHub runner (avoid running as root)
 RUN useradd -m -s /bin/bash runner && \

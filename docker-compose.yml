@@ -6,13 +6,13 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        CI_PLATFORM: ${CI_PLATFORM}
+        RUNNER_PLATFORM: ${RUNNER_PLATFORM}
         ADDITIONAL_PACKAGES: ${ADDITIONAL_PACKAGES}
         ENABLE_JLINK: ${ENABLE_JLINK:-false}
         ENABLE_PEAKCAN: ${ENABLE_PEAKCAN:-false}
     container_name: ${CONTAINER_NAME:-baremetal-ci-runner-1}
     
-    # Single unified entrypoint that selects runner based on CI_PLATFORM
+    # Single unified entrypoint that selects runner based on RUNNER_PLATFORM
     entrypoint: ["/home/runner/entrypoint.sh"]
     
     # Privileged mode for USB device access
@@ -31,7 +31,7 @@ services:
     # Environment variables for CI runner configuration
     environment:
       # Platform selection: 'github' or 'gitlab'
-      - CI_PLATFORM=${CI_PLATFORM:-github}
+      - RUNNER_PLATFORM=${RUNNER_PLATFORM:-github}
       
       # GitHub Actions configuration
       - GITHUB_OWNER=${GITHUB_OWNER}
