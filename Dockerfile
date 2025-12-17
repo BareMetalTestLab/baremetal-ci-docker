@@ -3,7 +3,7 @@ FROM ubuntu:24.04
 
 # Build argument to select CI platform (passed from docker-compose.yml via .env)
 # Must be 'github' or 'gitlab'
-# Note: Using RUNNER_PLATFORM instead of CI_PLATFORM to avoid conflicts with
+# Note: Using RUNNER_PLATFORM instead of RUNNER_PLATFORM to avoid conflicts with
 # GitLab CI predefined variables (CI_ prefix is reserved)
 ARG RUNNER_PLATFORM
 ARG ADDITIONAL_PACKAGES
@@ -116,10 +116,10 @@ RUN if [ -f /bin/udevadm.real ]; then \
 WORKDIR /home/runner
 USER runner
 
-# Download and extract GitHub Actions runner (only if CI_PLATFORM=github)
+# Download and extract GitHub Actions runner (only if RUNNER_PLATFORM=github)
 # The version should be updated to the latest available
 # Automatically detect architecture and download appropriate version
-RUN if [ "${CI_PLATFORM}" = "github" ]; then \
+RUN if [ "${RUNNER_PLATFORM}" = "github" ]; then \
         RUNNER_VERSION=$(curl -s https://api.github.com/repos/actions/runner/releases/latest | jq -r '.tag_name' | sed 's/v//') && \
         ARCH=$(uname -m) && \
         if [ "$ARCH" = "x86_64" ]; then \
@@ -134,12 +134,12 @@ RUN if [ "${CI_PLATFORM}" = "github" ]; then \
         tar xzf actions-runner-linux.tar.gz && \
         rm actions-runner-linux.tar.gz; \
     else \
-        echo "Skipping GitHub Actions runner installation (CI_PLATFORM=${CI_PLATFORM})"; \
+        echo "Skipping GitHub Actions runner installation (RUNNER_PLATFORM=${RUNNER_PLATFORM})"; \
     fi
 
-# Install GitLab Runner (only if CI_PLATFORM=gitlab)
+# Install GitLab Runner (only if RUNNER_PLATFORM=gitlab)
 USER root
-RUN if [ "${CI_PLATFORM}" = "gitlab" ]; then \
+RUN if [ "${RUNNER_PLATFORM}" = "gitlab" ]; then \
         curl -L "https://packages.gitlab.com/install/repositories/runner/gitlab-runner/script.deb.sh" | bash && \
         apt-get download gitlab-runner && \
         dpkg --force-depends -i gitlab-runner_*.deb && \
@@ -151,7 +151,7 @@ RUN if [ "${CI_PLATFORM}" = "gitlab" ]; then \
         mkdir -p /etc/gitlab-runner && \
         chown -R runner:runner /etc/gitlab-runner; \
     else \
-        echo "Skipping GitLab Runner installation (CI_PLATFORM=${CI_PLATFORM})"; \
+        echo "Skipping GitLab Runner installation (RUNNER_PLATFORM=${RUNNER_PLATFORM})"; \
     fi
 USER runner
 

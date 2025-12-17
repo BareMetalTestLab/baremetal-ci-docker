@@ -41,7 +41,7 @@ Main entrypoint that:
 1. Loads common functions
 2. Sets up work directories
 3. Checks J-Link devices
-4. Loads and starts the appropriate runner based on `CI_PLATFORM`
+4. Loads and starts the appropriate runner based on `RUNNER_PLATFORM`
 
 ## Benefits of New Structure
 

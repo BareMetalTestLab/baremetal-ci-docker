@@ -65,11 +65,11 @@ cp .env.example .env
 
 Edit `.env` and set:
 
-**For GitHub Actions (`CI_PLATFORM=github`):**
+**For GitHub Actions (`RUNNER_PLATFORM=github`):**
 
 ```bash
 # Platform selection
-CI_PLATFORM=github
+RUNNER_PLATFORM=github
 
 # GitHub token with repo and admin:org permissions
 GITHUB_TOKEN=ghp_your_token_here
@@ -86,7 +86,7 @@ RUNNER_LABELS=baremetal,jlink,mcu
 RUNNER_GROUP=default
 ```
 
-**For GitLab CI (`CI_PLATFORM=gitlab`):**
+**For GitLab CI (`RUNNER_PLATFORM=gitlab`):**
 
 See [README.gitlab.md](README.gitlab.md) for GitLab-specific configuration.
 
@@ -96,7 +96,7 @@ See [README.gitlab.md](README.gitlab.md) for GitLab-specific configuration.
 docker-compose up -d
 ```
 
-The container will automatically start the appropriate runner based on your `CI_PLATFORM` setting.
+The container will automatically start the appropriate runner based on your `RUNNER_PLATFORM` setting.
 
 ### 4. Verify Runner Status
 
@@ -345,9 +345,9 @@ All configuration is done in the `.env` file. Copy `.env.example` to `.env` and 
 
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
-| `CI_PLATFORM` | Yes | CI platform to use: `github` or `gitlab` | `github` |
+| `RUNNER_PLATFORM` | Yes | CI platform to use: `github` or `gitlab` | `github` |
 
-#### GitHub Actions Configuration (when `CI_PLATFORM=github`)
+#### GitHub Actions Configuration (when `RUNNER_PLATFORM=github`)
 
 | Variable | Required | Description | Example |
 |----------|----------|-------------|---------|
@@ -362,7 +362,7 @@ All configuration is done in the `.env` file. Copy `.env.example` to `.env` and 
 *Either `GITHUB_TOKEN` or `GITHUB_REGISTRATION_TOKEN` is required  
 **Either `GITHUB_OWNER` (org-level) or `GITHUB_REPOSITORY` (repo-level) is required
 
-#### GitLab CI Configuration (when `CI_PLATFORM=gitlab`)
+#### GitLab CI Configuration (when `RUNNER_PLATFORM=gitlab`)
 
 | Variable | Required | Description | Example |
 |----------|----------|-------------|---------|

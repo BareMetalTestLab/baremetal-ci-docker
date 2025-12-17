@@ -61,7 +61,7 @@ services:
     restart: unless-stopped
     
     # Network mode (host mode for SocketCAN access)
-    network_mode: host
+    network_mode: bridge
 
 volumes:
   runner-work:
